@@ -1,0 +1,23 @@
+name: my first github action
+
+on:
+  push:
+    branches:
+      - feature/github-actions-ci
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Say hello
+        run: echo "Hello Uday, Github Actions is working!"
+
+      - name: Show current directory
+        run: pwd
+
+      - name: Show files
+        run: ls -la
+
+      - name: Show git Version
+        run: git --version
