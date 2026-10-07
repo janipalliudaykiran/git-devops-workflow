@@ -22,7 +22,7 @@ jobs:
 
       - name: Validate required files
         run: |
-          test -f README-NOT-FOUND.md
+          test -f README.md
           test -f .gitignore
           echo "Required files exist."
 
