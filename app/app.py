@@ -1,5 +1,5 @@
 def get_message():
-    return "Hello from my DevOps application!"
+    return "Hello from my broken application!"
 
 
 if __name__ == "__main__":
