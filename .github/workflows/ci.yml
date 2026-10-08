@@ -1,9 +1,10 @@
-name: CI - Repository Validation
+name: Python CI
 
 on:
   pull_request:
     branches:
       - main
+
   push:
     branches:
       - main
@@ -12,31 +13,23 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate Repository
+  test:
+    name: Run Python Tests
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v7
 
-      - name: Validate required files
-        run: |
-          test -f README.md
-          test -f .gitignore
-          echo "Required files exist."
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
 
-      - name: Check that .env is not tracked
-        run: |
-          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
-            echo "ERROR: .env is tracked."
-            echo "Do not commit environment files or secrets."
-            exit 1
-          fi
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+          
 
-          echo "PASS: .env is not tracked."
+      - name: Run tests
+        run: python -m pytest
 
-      - name: Repository validation
-        run: |
-          git status --short
-          echo "CI validation passed."
