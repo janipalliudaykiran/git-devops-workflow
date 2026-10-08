@@ -19,11 +19,11 @@ jobs:
 
       - name: show Github information
         run: |
-          echo "Repository: ${{ github.repository }}
-          echo "Branch/Ref: ${{ github.ref }}
-          echo "Commit: ${{ github.sha }}
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch/Ref: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
 
       - name: Show runner information
         run: |
-          echo "Operating system: ${{ github.os }}
-          echo "Architechture: ${{ github.arch }}
+          echo "Operating system: ${{ github.os }}"
+          echo "Architechture: ${{ github.arch }}"
