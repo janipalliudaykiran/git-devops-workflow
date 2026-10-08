@@ -1,0 +1,16 @@
+name: Commit Identity Lab
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-runner
+
+    steps:
+      - name: Show Commit Information
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Short SHA: ${GITHUB_SHA:0:7}"
