@@ -1,0 +1,29 @@
+name: Github Actions Variables lab
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: devops-demo
+  AWS_REGION: ap-south-1
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: show custom variable
+        run: |
+          echo "Application: $APP_NAME"
+          echo "AWS region: $AWS_REGION"
+
+      - name: show Github information
+        run: |
+          echo "Repository: ${{ github.repository }}
+          echo "Branch/Ref: ${{ github.ref }}
+          echo "Commit: ${{ github.sha }}
+
+      - name: Show runner information
+        run: |
+          echo "Operating system: ${{ github.os }}
+          echo "Architechture: ${{ github.arch }}
