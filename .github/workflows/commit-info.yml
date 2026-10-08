@@ -5,7 +5,7 @@ on:
 
 jobs:
   inspect:
-    runs-on: ubuntu-runner
+    runs-on: ubuntu-latest
 
     steps:
       - name: Show Commit Information
