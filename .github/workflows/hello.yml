@@ -1,0 +1,30 @@
+name: Github Actions Learning
+
+on:
+  push:
+    branches:
+      - feature/github-actions-ci
+
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout-repository
+        uses: actions/checkout@v7
+
+      - name: Show current directory
+        run: pwd
+
+      - name: List repository files
+        run: ls -la
+
+      - name: Show README
+        run: cat README.md
+
+      - name: Git status
+        run: git status --short
+
+

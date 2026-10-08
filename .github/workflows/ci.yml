@@ -1,0 +1,42 @@
+name: CI - Repository Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Validate required files
+        run: |
+          test -f README.md
+          test -f .gitignore
+          echo "Required files exist."
+
+      - name: Check that .env is not tracked
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "ERROR: .env is tracked."
+            echo "Do not commit environment files or secrets."
+            exit 1
+          fi
+
+          echo "PASS: .env is not tracked."
+
+      - name: Repository validation
+        run: |
+          git status --short
+          echo "CI validation passed."
