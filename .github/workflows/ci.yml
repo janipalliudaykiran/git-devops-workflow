@@ -33,3 +33,25 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
+      
+      - name: Build Docker image
+        run: docker build --tag devops-python-app:ci .
+
+      - name: Test hardened Docker container
+        shell: bash
+        run: |
+          output="$(docker run --rm \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            devops-python-app:ci)"
+
+          printf '%s\n' "$output"
+          test "$output" = "Hello from my DevOps application!"
+
+          user="$(docker image inspect devops-python-app:ci --format='{{.Config.User}}')"
+          test "$user" = "appuser"
+
+          echo "Container smoke test and non-root check passed."
+
+
