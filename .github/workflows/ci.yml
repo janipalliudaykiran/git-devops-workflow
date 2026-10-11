@@ -39,22 +39,62 @@ jobs:
       - name: Build Docker image
         run: docker build --tag devops-python-app:ci .
 
+      
       - name: Test hardened Docker container
         shell: bash
         run: |
-          output="$(docker run --rm \
+          set -euo pipefail
+
+          container_name=devops-python-ci
+
+          cleanup() {
+            docker rm -f "$container_name" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run -d \
+            --name "$container_name" \
+            -p 127.0.0.1:8080:8000 \
             --read-only \
             --cap-drop=ALL \
             --security-opt=no-new-privileges \
-            devops-python-app:ci)"
+            devops-python-app:ci
 
+          health=""
+          for attempt in {1..15}; do
+            health="$(docker inspect --format='{{.State.Health.Status}}' "$container_name")"
+
+            if [ "$health" = "healthy" ]; then
+              break
+            fi
+
+            if [ "$health" = "unhealthy" ]; then
+              docker logs "$container_name"
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          health="$(docker inspect --format='{{.State.Health.Status}}' "$container_name")"
+          if [ "$health" != "healthy" ]; then
+            docker logs "$container_name"
+            echo "Container did not become healthy."
+            exit 1
+          fi
+
+          output="$(curl --fail --silent http://127.0.0.1:8080/)"
           printf '%s\n' "$output"
           test "$output" = "Hello from my DevOps application!"
+
+          health_body="$(curl --fail --silent http://127.0.0.1:8080/health)"
+          test "$health_body" = "ok"
 
           user="$(docker image inspect devops-python-app:ci --format='{{.Config.User}}')"
           test "$user" = "appuser"
 
-          echo "Container smoke test and non-root check passed."
+          echo "HTTP endpoints, health check, and non-root configuration passed."
+
 
       - name: Save tested Docker image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
