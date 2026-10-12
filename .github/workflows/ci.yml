@@ -149,3 +149,42 @@ jobs:
           docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
           echo "Published image: $REGISTRY/$REPOSITORY:$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
 
+  
+  deploy:
+    name: Deploy to Amazon ECS
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECS_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ECS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: ECSDeploy-${{ github.run_id }}
+
+      - name: Render task definition with the published image
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1.9.0
+        with:
+          task-definition: task-definition.json
+          container-name: devops-python-app
+          image: 232101830589.dkr.ecr.ap-south-1.amazonaws.com/devops-python-app:${{ github.sha }}-${{ github.run_attempt }}
+
+      - name: Deploy to ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2.6.3
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: devops-python-app-service
+          cluster: devops-lab-cluster
+          wait-for-service-stability: true
+          
+
