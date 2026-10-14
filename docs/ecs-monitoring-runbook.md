@@ -83,3 +83,35 @@ ECS event -> EventBridge -> SNS -> email path.
 - Task-definition revisions identify deployment configurations.
 - ECS events, task reasons and application logs provide different evidence.
 - Rollback should be verified by checking deployment state and application behaviour.
+
+
+## CPU monitoring and alert validation
+
+### Configuration
+
+- CloudWatch namespace: AWS/ECS
+- Metrics observed: CPUUtilization and MemoryUtilization
+- Alarm: devops-ecs-cpu-high
+- Intended CPU threshold: 80%
+- Intended evaluation: 3 of 5 one-minute periods
+- Notification destination: SNS topic devops-ecs-alerts
+
+### Validation result
+
+A bounded HTTP load test increased the observed ECS CPU utilization
+to approximately 75% before it decreased.
+
+The alarm was temporarily configured with a lower threshold for
+validation. It entered ALARM state and an SNS email was received.
+
+After testing, the ECS metrics-lab service was deleted.
+
+The alarm should be restored to its intended 80% threshold,
+3-of-5-period evaluation and missing-data treatment of missing.
+
+### Remaining validation
+
+SNS email delivery was verified. Actual ECS deployment-failure
+event delivery through EventBridge to SNS remains to be verified
+with a future controlled deployment test.
+
