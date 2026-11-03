@@ -193,3 +193,133 @@ resource "aws_instance" "web" {
     aws_iam_role_policy_attachment.ssm
   ]
 }
+
+# Identify the AWS account for the SNS topic policy.
+data "aws_caller_identity" "current" {}
+
+locals {
+  cpu_alarm_name = "devops-codex-web-cpu-high"
+}
+
+# SNS topic for alarm and recovery messages.
+resource "aws_sns_topic" "alerts" {
+  name = "devops-codex-web-alerts-232101830589"
+
+  tags = {
+    ManagedBy = "Terraform"
+    Project   = "devops-codex"
+  }
+}
+
+# Allow the account owner and the specified CloudWatch alarm
+# to use this topic.
+data "aws_iam_policy_document" "alerts_topic" {
+
+  policy_id = "__default_policy_ID"
+
+  # Allow the AWS account owner to manage the SNS topic.
+  statement {
+    sid    = "AllowAccountOwner"
+    effect = "Allow"
+
+    principals {
+      type = "AWS"
+
+      identifiers = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      ]
+    }
+
+    actions = [
+      "SNS:AddPermission",
+      "SNS:DeleteTopic",
+      "SNS:GetDataProtectionPolicy",
+      "SNS:GetTopicAttributes",
+      "SNS:ListSubscriptionsByTopic",
+      "SNS:ListTagsForResource",
+      "SNS:Publish",
+      "SNS:PutDataProtectionPolicy",
+      "SNS:RemovePermission",
+      "SNS:SetTopicAttributes",
+      "SNS:Subscribe"
+    ]
+
+    resources = [aws_sns_topic.alerts.arn]
+  }
+
+  # Allow CloudWatch to publish alarm notifications.
+  statement {
+    sid    = "AllowCloudWatchAlarmPublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+
+    actions = ["SNS:Publish"]
+
+    resources = [aws_sns_topic.alerts.arn]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+
+      values = [
+        "arn:aws:cloudwatch:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alarm:${local.cpu_alarm_name}"
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+
+      values = [
+        data.aws_caller_identity.current.account_id
+      ]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "alerts" {
+  arn    = aws_sns_topic.alerts.arn
+  policy = data.aws_iam_policy_document.alerts_topic.json
+}
+
+# Alert when the instance's average CPU is high.
+resource "aws_cloudwatch_metric_alarm" "web_cpu_high" {
+  alarm_name        = local.cpu_alarm_name
+  alarm_description = "EC2 average CPU is at least 70% for 2 of 3 five-minute periods."
+
+  namespace   = "AWS/EC2"
+  metric_name = "CPUUtilization"
+  statistic   = "Average"
+  period      = 300
+
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 70
+
+  evaluation_periods  = 3
+  datapoints_to_alarm = 2
+
+  dimensions = {
+    InstanceId = aws_instance.web.id
+  }
+
+  treat_missing_data = "missing"
+
+  alarm_actions = [
+    aws_sns_topic.alerts.arn
+  ]
+
+  ok_actions = [
+    aws_sns_topic.alerts.arn
+  ]
+
+  insufficient_data_actions = []
+
+  # Ensure the SNS permissions are in place before enabling the alarm.
+  depends_on = [
+    aws_sns_topic_policy.alerts
+  ]
+}
