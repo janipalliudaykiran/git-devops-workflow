@@ -27,3 +27,13 @@ output "security_group_id" {
   description = "Security group attached to the tasks"
   value       = aws_security_group.tasks.id
 }
+
+output "deployment_alerts_topic_arn" {
+  description = "SNS topic ARN for ECS deployment failures"
+  value       = aws_sns_topic.deployment_alerts.arn
+}
+
+output "deployment_failure_rule_arn" {
+  description = "EventBridge rule ARN for ECS deployment failures"
+  value       = aws_cloudwatch_event_rule.ecs_deployment_failed.arn
+}

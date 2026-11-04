@@ -51,3 +51,9 @@ variable "allowed_client_cidr" {
     error_message = "Provide a valid single IPv4 address in /32 CIDR format."
   }
 }
+
+variable "simulate_deployment_failure" {
+  description = "Use a nonexistent ECR image to test ECS failure recovery"
+  type        = bool
+  default     = false
+}

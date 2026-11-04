@@ -21,6 +21,8 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_caller_identity" "current" {}
+
 # Look up the VPC created in the previous Terraform lesson.
 data "aws_vpc" "lab" {
   filter {
@@ -165,7 +167,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name      = "devops-python-app"
-      image     = data.aws_ecr_image.app.image_uri
+      image     = var.simulate_deployment_failure ? "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.ecr_repository_name}:missing-for-failure-test" : data.aws_ecr_image.app.image_uri
       essential = true
 
       portMappings = [
@@ -248,5 +250,124 @@ resource "aws_ecs_service" "app" {
   # Ensure permissions exist before ECS attempts to start tasks.
   depends_on = [
     aws_iam_role_policy_attachment.execution
+  ]
+}
+
+resource "aws_sns_topic" "deployment_alerts" {
+  name = "devops-codex-ecs-deployment-alerts"
+
+  tags = {
+    ManagedBy = "Terraform"
+    Project   = "devops-codex"
+  }
+}
+
+resource "aws_cloudwatch_event_rule" "ecs_deployment_failed" {
+  name        = "devops-codex-ecs-deployment-failed"
+  description = "Detect failed deployments of the Terraform ECS service"
+
+  event_pattern = jsonencode({
+    source = ["aws.ecs"]
+
+    "detail-type" = [
+      "ECS Deployment State Change"
+    ]
+
+    detail = {
+      eventName = [
+        "SERVICE_DEPLOYMENT_FAILED"
+      ]
+    }
+  })
+
+  tags = {
+    ManagedBy = "Terraform"
+    Project   = "devops-codex"
+  }
+}
+
+data "aws_iam_policy_document" "deployment_alerts" {
+
+  statement {
+    sid    = "AllowAccountOwner"
+    effect = "Allow"
+
+    principals {
+      type = "AWS"
+
+      identifiers = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      ]
+    }
+
+    actions = [
+      "SNS:AddPermission",
+      "SNS:DeleteTopic",
+      "SNS:GetTopicAttributes",
+      "SNS:ListSubscriptionsByTopic",
+      "SNS:Publish",
+      "SNS:RemovePermission",
+      "SNS:SetTopicAttributes",
+      "SNS:Subscribe"
+    ]
+
+    resources = [
+      aws_sns_topic.deployment_alerts.arn
+    ]
+  }
+
+  statement {
+    sid    = "AllowEventBridgePublish"
+    effect = "Allow"
+
+    principals {
+      type = "Service"
+
+      identifiers = [
+        "events.amazonaws.com"
+      ]
+    }
+
+    actions = [
+      "SNS:Publish"
+    ]
+
+    resources = [
+      aws_sns_topic.deployment_alerts.arn
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+
+      values = [
+        aws_cloudwatch_event_rule.ecs_deployment_failed.arn
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+
+      values = [
+        data.aws_caller_identity.current.account_id
+      ]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "deployment_alerts" {
+  arn = aws_sns_topic.deployment_alerts.arn
+
+  policy = data.aws_iam_policy_document.deployment_alerts.json
+}
+
+resource "aws_cloudwatch_event_target" "ecs_deployment_failed" {
+  rule      = aws_cloudwatch_event_rule.ecs_deployment_failed.name
+  target_id = "EcsDeploymentFailureEmail"
+  arn       = aws_sns_topic.deployment_alerts.arn
+
+  depends_on = [
+    aws_sns_topic_policy.deployment_alerts
   ]
 }
